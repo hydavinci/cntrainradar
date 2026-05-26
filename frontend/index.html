@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CN Train Radar | GrayMammoth</title>
+  <title>CN Train Radar | 中国列车雷达</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚄</text></svg>">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=11">
 </head>
 <body>
   <div id="map"></div>
@@ -16,24 +16,36 @@
 
   <!-- Info panel -->
   <div id="info-panel">
-    <h3>🚄 CN Train Radar</h3>
-    <div class="stat"><span>Active Trains</span><span class="stat-value" id="train-count">0</span></div>
-    <div class="stat"><span id="status-dot"></span><span id="status-text">Loading...</span></div>
-    <div class="info-note">Position simulated from timetable</div>
+    <h3>🚄 中国列车雷达</h3>
+    <div class="stat"><span>运行列车</span><span class="stat-value" id="train-count">0</span></div>
+    <div class="stat"><span id="status-dot"></span><span id="status-text">加载中...</span></div>
+    <div class="info-note">根据时刻表模拟位置</div>
+  </div>
+
+  <!-- Filter -->
+  <div id="filter-panel">
+    <div class="filter-toggle" onclick="toggleFilter()">
+      <span>🔍 筛选</span>
+    </div>
+    <div class="filter-body" id="filter-body">
+      <input type="text" id="filter-input" placeholder="车次、线路、车站" oninput="applyFilter()">
+      <div class="filter-stats" id="filter-stats"></div>
+      <button class="filter-clear" onclick="clearFilter()">清除</button>
+    </div>
   </div>
 
   <!-- Legend -->
   <div id="legend">
-    <div class="legend-title">Train Type</div>
-    <div class="legend-item"><span class="legend-color" style="background:#e53935"></span>G - High Speed</div>
-    <div class="legend-item"><span class="legend-color" style="background:#1e88e5"></span>D - EMU</div>
-    <div class="legend-item"><span class="legend-color" style="background:#43a047"></span>C - Intercity</div>
-    <div class="legend-item"><span class="legend-color" style="background:#fb8c00"></span>Z - Direct</div>
-    <div class="legend-item"><span class="legend-color" style="background:#8e24aa"></span>T - Express</div>
-    <div class="legend-item"><span class="legend-color" style="background:#757575"></span>K - Fast</div>
+    <div class="legend-title">列车类型</div>
+    <div class="legend-item"><span class="legend-color" style="background:#1e88e5"></span>G - 高速动车</div>
+    <div class="legend-item"><span class="legend-color" style="background:#e53935"></span>D - 动车组</div>
+    <div class="legend-item"><span class="legend-color" style="background:#43a047"></span>C - 城际</div>
+    <div class="legend-item"><span class="legend-color" style="background:#fb8c00"></span>Z - 直达</div>
+    <div class="legend-item"><span class="legend-color" style="background:#8e24aa"></span>T - 特快</div>
+    <div class="legend-item"><span class="legend-color" style="background:#757575"></span>K - 快速</div>
   </div>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="/js/app.js"></script>
+  <script src="/js/app.js?v=24"></script>
 </body>
 </html>

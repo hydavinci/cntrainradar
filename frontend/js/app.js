@@ -3,20 +3,66 @@
  */
 
 const TRAIN_COLORS = {
-  G: [229, 57, 53],    // red - high speed
-  D: [30, 136, 229],   // blue - EMU
+  G: [30, 136, 229],   // blue - high speed
+  D: [229, 57, 53],    // red - EMU
   C: [67, 160, 71],    // green - intercity
   Z: [251, 140, 0],    // orange - direct
   T: [142, 36, 170],   // purple - express
   K: [117, 117, 117]   // grey - fast
 };
 
-const TRAIN_IMG_SIZE = 40;
+const TRAIN_IMG_SIZE = 48;
 let trains = [];
+let filteredTrains = [];
 let selectedTrain = null;
 let detailAnchor = null;
+let filterText = '';
 
 // --- Map ---
+let isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const mapTiles = [
+  'https://wprd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scl=1&style=7&x={x}&y={y}&z={z}',
+  'https://wprd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scl=1&style=7&x={x}&y={y}&z={z}'
+];
+
+// --- WGS84 to GCJ02 coordinate transform ---
+const PI = Math.PI;
+const A = 6378245.0;
+const EE = 0.00669342162296594323;
+
+function isInChina(lon, lat) {
+  return (lon > 73.66 && lon < 135.05 && lat > 3.86 && lat < 53.55);
+}
+
+function transformLat(x, y) {
+  let r = -100.0 + 2.0*x + 3.0*y + 0.2*y*y + 0.1*x*y + 0.2*Math.sqrt(Math.abs(x));
+  r += (20.0*Math.sin(6.0*x*PI) + 20.0*Math.sin(2.0*x*PI)) * 2.0/3.0;
+  r += (20.0*Math.sin(y*PI) + 40.0*Math.sin(y/3.0*PI)) * 2.0/3.0;
+  r += (160.0*Math.sin(y/12.0*PI) + 320.0*Math.sin(y*PI/30.0)) * 2.0/3.0;
+  return r;
+}
+
+function transformLon(x, y) {
+  let r = 300.0 + x + 2.0*y + 0.1*x*x + 0.1*x*y + 0.1*Math.sqrt(Math.abs(x));
+  r += (20.0*Math.sin(6.0*x*PI) + 20.0*Math.sin(2.0*x*PI)) * 2.0/3.0;
+  r += (20.0*Math.sin(x*PI) + 40.0*Math.sin(x/3.0*PI)) * 2.0/3.0;
+  r += (150.0*Math.sin(x/12.0*PI) + 300.0*Math.sin(x/30.0*PI)) * 2.0/3.0;
+  return r;
+}
+
+function wgs84ToGcj02(lon, lat) {
+  if (!isInChina(lon, lat)) return [lon, lat];
+  let dLat = transformLat(lon - 105.0, lat - 35.0);
+  let dLon = transformLon(lon - 105.0, lat - 35.0);
+  const radLat = lat / 180.0 * PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - EE * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / ((A * (1 - EE)) / (magic * sqrtMagic) * PI);
+  dLon = (dLon * 180.0) / (A / sqrtMagic * Math.cos(radLat) * PI);
+  return [lon + dLon, lat + dLat];
+}
+
 const map = new maplibregl.Map({
   container: 'map',
   style: {
@@ -25,20 +71,50 @@ const map = new maplibregl.Map({
     sources: {
       'carto': {
         type: 'raster',
-        tiles: [
-          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-        ],
+        tiles: mapTiles,
         tileSize: 256,
-        attribution: '© OSM © CARTO'
+        attribution: '© AutoNavi'
       }
     },
-    layers: [{ id: 'carto-layer', type: 'raster', source: 'carto', paint: { 'raster-fade-duration': 0 } }]
+    layers: [
+      { id: 'carto-layer', type: 'raster', source: 'carto', paint: { 'raster-fade-duration': 0 } }
+    ]
   },
-  center: [108, 34],
+  center: [105, 35],
   zoom: 4,
   minZoom: 3,
-  maxZoom: 14
+  maxZoom: 14,
+  maxBounds: [[70, 15], [140, 55]]
+});
+
+// Dark mode: CSS invert on the map canvas
+// Train icon colors get inverted too — we pre-compensate in TRAIN_COLORS_DARK
+let mapLoaded = false;
+
+const TRAIN_COLORS_DARK = {
+  G: [225, 119, 26],   // compensated blue
+  D: [26, 198, 202],   // compensated red
+  C: [188, 95, 184],   // compensated green
+  Z: [4, 115, 255],    // compensated orange
+  T: [113, 219, 85],   // compensated purple
+  K: [138, 138, 138]   // grey stays grey
+};
+
+function getTrainColors() {
+  return isDarkMode ? TRAIN_COLORS_DARK : TRAIN_COLORS;
+}
+
+function applyDarkMode(dark) {
+  map.getCanvas().style.filter = dark
+    ? 'invert(1) hue-rotate(180deg)'
+    : 'none';
+}
+
+// Listen for system theme change
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+  isDarkMode = e.matches;
+  applyDarkMode(isDarkMode);
+  if (mapLoaded) addTrainImages();
 });
 
 // --- Train icon generation ---
@@ -48,45 +124,81 @@ function createTrainImage(color) {
   canvas.width = size; canvas.height = size;
   const ctx = canvas.getContext('2d');
   const [r, g, b] = color;
-  const s = size / 40;
 
   ctx.translate(size/2, size/2);
-  
+
   // Glow
   ctx.shadowColor = `rgba(${r},${g},${b},0.4)`;
-  ctx.shadowBlur = 4*s;
+  ctx.shadowBlur = 3;
 
-  // Body (bullet train shape)
+  // Locomotive (front)
   ctx.fillStyle = `rgb(${r},${g},${b})`;
   ctx.beginPath();
-  ctx.moveTo(0, -16*s);        // nose
-  ctx.bezierCurveTo(4*s, -12*s, 5*s, -4*s, 5*s, 4*s);
-  ctx.lineTo(5*s, 14*s);
-  ctx.lineTo(3*s, 16*s);       // rear
-  ctx.lineTo(-3*s, 16*s);
-  ctx.lineTo(-5*s, 14*s);
-  ctx.lineTo(-5*s, 4*s);
-  ctx.bezierCurveTo(-5*s, -4*s, -4*s, -12*s, 0, -16*s);
+  ctx.moveTo(0, -20);
+  ctx.lineTo(2, -20);
+  ctx.lineTo(2, -16);
+  ctx.lineTo(4, -16);
+  ctx.lineTo(4, -8);
+  ctx.lineTo(5, -8);
+  ctx.lineTo(5, -2);
+  ctx.lineTo(4, -2);
+  ctx.lineTo(4, 0);
+  ctx.lineTo(-4, 0);
+  ctx.lineTo(-4, -2);
+  ctx.lineTo(-5, -2);
+  ctx.lineTo(-5, -8);
+  ctx.lineTo(-4, -8);
+  ctx.lineTo(-4, -16);
+  ctx.lineTo(-2, -16);
+  ctx.lineTo(-2, -20);
   ctx.closePath();
   ctx.fill();
 
   ctx.shadowBlur = 0;
 
-  // Windshield
-  ctx.fillStyle = `rgba(${Math.min(255,r+60)},${Math.min(255,g+60)},${Math.min(255,b+60)},0.6)`;
-  ctx.beginPath();
-  ctx.ellipse(0, -10*s, 3*s, 4*s, 0, 0, Math.PI*2);
-  ctx.fill();
+  // Locomotive window
+  ctx.fillStyle = 'rgba(180,220,255,0.7)';
+  ctx.fillRect(-2.5, -15, 5, 3);
 
-  // Stripe
-  ctx.fillStyle = 'rgba(255,255,255,0.2)';
-  ctx.fillRect(-1*s, -6*s, 2*s, 16*s);
+  // Carriage 1
+  ctx.fillStyle = `rgba(${r},${g},${b},0.85)`;
+  ctx.fillRect(-4, 2, 8, 8);
+  ctx.fillStyle = 'rgba(180,220,255,0.6)';
+  ctx.fillRect(-3, 3.5, 2.5, 2);
+  ctx.fillRect(0.5, 3.5, 2.5, 2);
+
+  // Carriage 2
+  ctx.fillStyle = `rgba(${r},${g},${b},0.7)`;
+  ctx.fillRect(-4, 12, 8, 8);
+  ctx.fillStyle = 'rgba(180,220,255,0.5)';
+  ctx.fillRect(-3, 13.5, 2.5, 2);
+  ctx.fillRect(0.5, 13.5, 2.5, 2);
+
+  // Coupling links
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.5)`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, 0); ctx.lineTo(0, 2);
+  ctx.moveTo(0, 10); ctx.lineTo(0, 12);
+  ctx.stroke();
+
+  // Wheels
+  ctx.fillStyle = '#333';
+  ctx.beginPath();
+  ctx.arc(-3, -1, 1.5, 0, Math.PI*2);
+  ctx.arc(3, -1, 1.5, 0, Math.PI*2);
+  ctx.arc(-3, 9, 1.5, 0, Math.PI*2);
+  ctx.arc(3, 9, 1.5, 0, Math.PI*2);
+  ctx.arc(-3, 19, 1.5, 0, Math.PI*2);
+  ctx.arc(3, 19, 1.5, 0, Math.PI*2);
+  ctx.fill();
 
   return canvas;
 }
 
 function addTrainImages() {
-  for (const [type, color] of Object.entries(TRAIN_COLORS)) {
+  const colors = getTrainColors();
+  for (const [type, color] of Object.entries(colors)) {
     const name = `train-${type}`;
     if (map.hasImage(name)) map.removeImage(name);
     const canvas = createTrainImage(color);
@@ -104,27 +216,38 @@ function addTrainImages() {
 function trainsToGeoJSON(trainList) {
   return {
     type: 'FeatureCollection',
-    features: trainList.map(t => ({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [t.lon, t.lat] },
-      properties: {
-        id: t.id,
-        type: t.type,
-        heading: t.heading || 0,
-        icon: t.id === selectedTrain ? 'train-selected' : `train-${t.type}`
-      }
-    }))
+    features: trainList.map(t => {
+      const [lon, lat] = wgs84ToGcj02(t.lon, t.lat);
+      return {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lon, lat] },
+        properties: {
+          id: t.id,
+          type: t.type,
+          heading: t.heading || 0,
+          icon: t.id === selectedTrain ? 'train-selected' : `train-${t.type}`
+        }
+      };
+    })
   };
 }
 
 // --- Map load ---
 map.on('load', () => {
+  mapLoaded = true;
+  applyDarkMode(isDarkMode);
   addTrainImages();
 
   map.on('styleimagemissing', () => addTrainImages());
 
-  // Railway lines
+  // Railway lines (convert coords to GCJ02)
   fetch('/data/railways.json').then(r => r.json()).then(data => {
+    // Transform all coordinates
+    for (const feature of data.features) {
+      if (feature.geometry && feature.geometry.coordinates) {
+        feature.geometry.coordinates = feature.geometry.coordinates.map(c => wgs84ToGcj02(c[0], c[1]));
+      }
+    }
     map.addSource('railways', { type: 'geojson', data });
     map.addLayer({
       id: 'railways-layer', type: 'line', source: 'railways',
@@ -199,12 +322,65 @@ async function fetchTrains() {
     const data = await resp.json();
     trains = data.trains || [];
     document.getElementById('train-count').textContent = data.count;
-    document.getElementById('status-text').textContent = `${data.count} trains`;
-    if (map.getSource('trains')) {
-      map.getSource('trains').setData(trainsToGeoJSON(trains));
-    }
+    document.getElementById('status-text').textContent = `${data.count} 列运行中`;
+    updateMap();
   } catch (e) {
-    document.getElementById('status-text').textContent = 'Error';
+    document.getElementById('status-text').textContent = '加载失败';
+  }
+}
+
+function updateMap() {
+  filteredTrains = trains.filter(matchesFilter);
+  if (map.getSource('trains')) {
+    map.getSource('trains').setData(trainsToGeoJSON(filteredTrains));
+  }
+  document.getElementById('filter-stats').textContent =
+    filterText ? `显示 ${filteredTrains.length} / ${trains.length}` : '';
+}
+
+// --- Filter ---
+function matchesFilter(t) {
+  if (!filterText) return true;
+  const q = filterText.toUpperCase();
+  if (t.id.toUpperCase().includes(q)) return true;
+  if (t.routeName && t.routeName.includes(filterText)) return true;
+  if (t.from && t.from.includes(filterText)) return true;
+  if (t.to && t.to.includes(filterText)) return true;
+  if (t.currentStation && t.currentStation.includes(filterText)) return true;
+  if (t.nextStation && t.nextStation.includes(filterText)) return true;
+  if (t.type.toUpperCase() === q) return true;
+  return false;
+}
+
+function applyFilter() {
+  filterText = document.getElementById('filter-input').value.trim();
+  updateMap();
+  // Auto-zoom to results
+  if (filterText && filteredTrains.length > 0 && filteredTrains.length <= 10) {
+    if (filteredTrains.length === 1) {
+      map.flyTo({ center: [filteredTrains[0].lon, filteredTrains[0].lat], zoom: Math.max(map.getZoom(), 7) });
+      selectTrain(filteredTrains[0].id);
+    } else {
+      const bounds = new maplibregl.LngLatBounds();
+      filteredTrains.forEach(t => bounds.extend([t.lon, t.lat]));
+      map.fitBounds(bounds, { padding: 60 });
+    }
+  }
+}
+
+function clearFilter() {
+  filterText = '';
+  document.getElementById('filter-input').value = '';
+  updateMap();
+}
+
+function toggleFilter() {
+  const panel = document.getElementById('filter-panel');
+  const body = document.getElementById('filter-body');
+  body.classList.toggle('open');
+  panel.classList.toggle('expanded', body.classList.contains('open'));
+  if (body.classList.contains('open')) {
+    document.getElementById('filter-input').focus();
   }
 }
 
@@ -222,12 +398,12 @@ function selectTrain(id) {
     <div class="td-id">${t.id}</div>
     <div class="td-route">${t.routeName} · ${t.from} → ${t.to}</div>
     <div class="td-grid">
-      <div class="td-field"><span class="label">Type</span><span class="value">${t.type}-${t.type==='G'?'High Speed':t.type==='D'?'EMU':t.type==='C'?'Intercity':t.type==='Z'?'Direct':t.type==='T'?'Express':'Fast'}</span></div>
-      <div class="td-field"><span class="label">Speed</span><span class="value">${t.speed} km/h</span></div>
-      <div class="td-field"><span class="label">Current</span><span class="value">${t.currentStation}</span></div>
-      <div class="td-field"><span class="label">Next</span><span class="value">${t.nextStation}</span></div>
-      <div class="td-field"><span class="label">Status</span><span class="value">${t.stopped ? '🟡 Stopped' : '🟢 Running'}</span></div>
-      <div class="td-field"><span class="label">Progress</span><span class="value">${t.progress}%</span></div>
+      <div class="td-field"><span class="label">类型</span><span class="value">${t.type}-${t.type==='G'?'高速动车':t.type==='D'?'动车组':t.type==='C'?'城际':t.type==='Z'?'直达':t.type==='T'?'特快':'快速'}</span></div>
+      <div class="td-field"><span class="label">速度</span><span class="value">${t.speed} km/h</span></div>
+      <div class="td-field"><span class="label">当前站</span><span class="value">${t.currentStation}</span></div>
+      <div class="td-field"><span class="label">下一站</span><span class="value">${t.nextStation}</span></div>
+      <div class="td-field"><span class="label">状态</span><span class="value">${t.stopped ? '🟡 停靠中' : '🟢 运行中'}</span></div>
+      <div class="td-field"><span class="label">进度</span><span class="value">${t.progress}%</span></div>
     </div>`;
   
   detailAnchor = { lng: t.lon, lat: t.lat };
@@ -251,10 +427,13 @@ function positionDetail() {
 
 function closeTrainDetail() {
   document.getElementById('train-detail').className = '';
-  document.getElementById('train-detail').style.display = 'none';
+  document.getElementById('train-detail').style.display = '';
   selectedTrain = null;
   detailAnchor = null;
   if (map.getSource('trains')) map.getSource('trains').setData(trainsToGeoJSON(trains));
 }
 
 window.closeTrainDetail = closeTrainDetail;
+window.toggleFilter = toggleFilter;
+window.applyFilter = applyFilter;
+window.clearFilter = clearFilter;

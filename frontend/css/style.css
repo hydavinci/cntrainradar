@@ -16,8 +16,50 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 #status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: #66bb6a; animation: pulse 2s infinite; }
 @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
 
+/* Filter */
+#filter-panel {
+  position: absolute; top: 12px; right: 12px; z-index: 10;
+}
+.filter-toggle {
+  background: rgba(12,12,20,0.88); backdrop-filter: blur(12px);
+  color: #e0e0e0; padding: 8px 16px; border-radius: 8px;
+  border: 1px solid rgba(229,57,53,0.2); cursor: pointer;
+  font-size: 13px; user-select: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+.filter-toggle:hover { border-color: rgba(229,57,53,0.5); }
+.filter-body {
+  display: none;
+  margin-top: 8px;
+  padding: 12px;
+}
+.filter-body.open { display: block; }
+#filter-panel.expanded {
+  background: rgba(12,12,20,0.94); backdrop-filter: blur(12px);
+  border-radius: 10px; border: 1px solid rgba(229,57,53,0.15);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4); padding: 10px 14px;
+}
+#filter-panel.expanded .filter-toggle {
+  background: none; border: none; box-shadow: none; padding: 0; margin-bottom: 6px;
+}
+.filter-body input {
+  width: 100%; padding: 8px 12px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(229,57,53,0.25);
+  border-radius: 6px; color: #fff; font-size: 13px; outline: none;
+}
+.filter-body input:focus { border-color: #e53935; }
+.filter-body input::placeholder { color: #555; }
+.filter-stats { margin-top: 6px; font-size: 11px; color: #888; }
+.filter-clear {
+  margin-top: 8px; padding: 5px 12px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 5px; color: #bbb; font-size: 11px; cursor: pointer;
+}
+.filter-clear:hover { background: rgba(255,255,255,0.15); }
+
+/* Legend */
 #legend {
-  position: absolute; bottom: 12px; right: 12px; z-index: 10;
+  position: absolute; bottom: 40px; right: 12px; z-index: 10;
   background: rgba(12,12,20,0.88); backdrop-filter: blur(10px);
   padding: 10px 14px; border-radius: 10px;
   border: 1px solid rgba(229,57,53,0.15); font-size: 11px; color: #ccc;
@@ -26,6 +68,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .legend-item { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
 .legend-color { width: 10px; height: 10px; border-radius: 50%; }
 
+/* Train detail */
 #train-detail {
   position: absolute; z-index: 20; display: none;
   background: rgba(12,12,20,0.94); backdrop-filter: blur(14px);
@@ -52,7 +95,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 .train-tooltip .maplibregl-popup-tip { border-top-color: rgba(12,12,20,0.92); }
 
+/* Light theme (system preference) */
+@media (prefers-color-scheme: light) {
+  body { background: #f5f5f7; }
+  #info-panel, #filter-panel .filter-toggle, .filter-body, #legend, #train-detail, #filter-panel.expanded {
+    background: rgba(255,255,255,0.92); color: #333;
+    border-color: rgba(229,57,53,0.15);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  }
+  #info-panel h3 { color: #222; }
+  .stat-value { color: #c62828; }
+  .info-note { color: #999; }
+  .legend-title { color: #333; }
+  .legend-item { color: #555; }
+  .filter-toggle { color: #333; }
+  .filter-body input { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.15); color: #333; }
+  .filter-body input::placeholder { color: #999; }
+  .filter-stats { color: #666; }
+  .filter-clear { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.1); color: #555; }
+  #train-detail { color: #333; }
+  .td-id { color: #c62828; }
+  .td-route { color: #666; }
+  .td-field .label { color: #888; }
+  .td-field .value { color: #222; }
+  .td-close { color: #999; }
+  .td-close:hover { color: #333; }
+  .train-tooltip .maplibregl-popup-content { background: rgba(255,255,255,0.95); color: #333; border-color: rgba(0,0,0,0.1); }
+  .train-tooltip .maplibregl-popup-tip { border-top-color: rgba(255,255,255,0.95); }
+}
+
 @media (max-width: 600px) {
   #info-panel { top: 8px; left: 8px; padding: 10px 12px; }
   #train-detail { min-width: 240px; max-width: 90vw; }
+  .filter-body { min-width: 220px; }
 }
