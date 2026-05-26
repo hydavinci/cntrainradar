@@ -1,164 +1,155 @@
-# 🚄 CN Train Radar
+# 🚄 中国列车雷达 (CN Train Radar)
 
-Real-time simulation of China's railway network. Train positions are calculated by interpolating between scheduled timetable stops.
+基于时刻表的中国铁路列车实时模拟，通过插值计算列车在站间的估计位置。
 
-**Live:** https://cntrainradar.graymammoth.com
-
----
-
-## Features
-
-- 🗺️ WebGL map rendering (MapLibre GL) — smooth 60fps
-- 🚄 Real-time train position simulation based on timetable
-- 🎨 Color-coded by train type (G/D/C/Z/T/K)
-- 📍 Click train for details (route, speed, current/next station, progress)
-- 🛤️ Railway line overlay (189 lines from OSM)
-- 🖱️ Hover tooltip (train ID + route + speed)
-- 📱 Mobile-friendly responsive design
+**在线体验:** https://cntrainradar.graymammoth.com
 
 ---
 
-## Architecture
+## 功能特性
+
+- 🗺️ WebGL 地图渲染 (MapLibre GL) — 流畅 60fps
+- 🚄 基于时刻表的实时列车位置模拟
+- 🎨 按列车类型颜色编码 (G/D/C/Z/T/K)
+- 📍 点击列车查看详情（线路、速度、当前站/下一站、进度）
+- 🛤️ 铁路线路叠加显示（189条线路，来源 OSM）
+- 🖱️ 悬停提示（车次 + 线路 + 速度）
+- 🔍 筛选功能（按车次、线路、车站搜索）
+- 🌙 自动暗色模式（跟随系统主题）
+- 📱 移动端自适应设计
+- 🇨🇳 全中文界面
+
+---
+
+## 架构
 
 ```
 ┌─────────────────────────────────────────────┐
-│                 Browser                      │
+│                 浏览器                        │
 │  ┌────────────┐  ┌──────────────────────┐   │
-│  │ MapLibre GL│  │ Polling /api/trains   │   │
-│  │  (WebGL)   │  │ every 10s            │   │
+│  │ MapLibre GL│  │ 轮询 /api/trains      │   │
+│  │  (WebGL)   │  │ 每 10 秒             │   │
 │  └────────────┘  └──────────────────────┘   │
 └─────────────────┬───────────────────────────┘
                   │ HTTP
 ┌─────────────────┼───────────────────────────┐
-│  Nginx          │  (reverse proxy + SSL)    │
+│  Nginx          │  (反向代理 + SSL)          │
 │  :80/:443 → 127.0.0.1:3002                  │
 └─────────────────┼───────────────────────────┘
                   │
 ┌─────────────────┼───────────────────────────┐
-│  Node.js Backend (Express)                   │
+│  Node.js 后端 (Express)                      │
 │                 │                            │
 │  ┌──────────────┴──────────────────┐        │
 │  │         server.js                │        │
-│  │  - Load timetable (schedules)    │        │
-│  │  - Calculate current positions   │        │
-│  │  - Linear interpolation          │        │
+│  │  - 加载时刻表 (schedules)         │        │
+│  │  - 计算当前位置                   │        │
+│  │  - 线性插值                       │        │
 │  └──────────────────────────────────┘        │
 │                                              │
-│  Data files:                                 │
-│  ├── schedules.json    (330 trains)          │
-│  ├── station_coords.json (4351 stations)     │
-│  └── stations.json     (3365 stations)       │
+│  数据文件:                                    │
+│  ├── schedules.json    (330 趟列车)           │
+│  ├── station_coords.json (4351 个车站)        │
+│  └── stations.json     (3365 个车站)          │
 └──────────────────────────────────────────────┘
 ```
 
 ---
 
-## How It Works
+## 工作原理
 
-Unlike flight tracking (which uses real-time ADS-B GPS signals), China's railways don't broadcast live positions publicly. This project uses **timetable-based simulation**:
+与航班追踪（使用实时 ADS-B GPS 信号）不同，中国铁路不公开广播实时位置。本项目使用**时刻表模拟**：
 
-1. **Timetable data** — Each train has a list of stops with scheduled arrival/departure times
-2. **Position interpolation** — Based on current time (UTC+8), calculate which segment the train is on
-3. **Linear interpolation** — Estimate position between two stations based on progress percentage
+1. **时刻表数据** — 每趟列车有一系列停靠站及到发时刻
+2. **位置插值** — 根据当前时间（UTC+8），判断列车处于哪一区间
+3. **线性估算** — 按进度百分比估计在两站之间的位置
 
-This is the same approach used by apps like "高铁通" (China HSR Tracker).
-
-**Limitations:**
-- Positions are estimates, not real GPS
-- Delays/cancellations are not reflected
-- Currently covers 13 major routes (330 trains), not all ~5000+ daily services
+**局限性：**
+- 位置为估算值，非真实 GPS
+- 不反映晚点/停运
+- 目前覆盖 13 条主要线路（330 趟列车），非全部 5000+ 日常车次
 
 ---
 
-## Tech Stack
+## 列车类型
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | MapLibre GL JS (WebGL), Vanilla JS, CSS |
-| Backend | Node.js 22, Express |
-| Data | 12306 station names, OSM railway GeoJSON |
-| Reverse Proxy | Nginx + Cloudflare |
-| Process Manager | systemd |
-| Compression | gzip |
+| 类型 | 名称 | 速度 | 颜色 |
+|------|------|------|------|
+| G | 高速动车 | ~300 km/h | 🔵 蓝色 |
+| D | 动车组 | ~200 km/h | 🔴 红色 |
+| C | 城际 | ~180 km/h | 🟢 绿色 |
+| Z | 直达 | ~120 km/h | 🟠 橙色 |
+| T | 特快 | ~100 km/h | 🟣 紫色 |
+| K | 快速 | ~80 km/h | ⚫ 灰色 |
 
 ---
 
-## Directory Structure
+## 覆盖线路
+
+| 线路 | 区间 | 站数 |
+|------|------|------|
+| 京沪高铁 | 北京南 ↔ 上海虹桥 | 23 |
+| 京广高铁（北段） | 北京西 ↔ 武汉 | 19 |
+| 京广高铁（南段） | 武汉 ↔ 广州南 | 12 |
+| 沪昆高铁（东段） | 上海虹桥 ↔ 长沙南 | 13 |
+| 沪昆高铁（西段） | 长沙南 ↔ 昆明南 | 10 |
+| 成渝高铁 | 成都东 ↔ 重庆北 | 12 |
+| 哈大高铁 | 哈尔滨西 ↔ 大连北 | 18 |
+| 合福高铁 | 合肥南 ↔ 福州 | 17 |
+| 贵广高铁 | 贵阳北 ↔ 广州南 | 17 |
+| 西成高铁 | 西安北 ↔ 成都东 | 13 |
+| 京哈线 (K) | 北京 ↔ 哈尔滨 | 9 |
+| 京沪线 (T) | 北京 ↔ 上海 | 10 |
+| 京广线 (Z) | 北京西 ↔ 广州 | 6 |
+
+---
+
+## 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 前端 | MapLibre GL JS (WebGL)、原生 JS、CSS |
+| 后端 | Node.js 22、Express |
+| 地图瓦片 | 高德地图 (AutoNavi) |
+| CDN | jsdelivr (MapLibre)、openmaptiles (字体) |
+| 数据来源 | 12306 站名、OSM 铁路 GeoJSON |
+| 反向代理 | Nginx + Cloudflare |
+| 进程管理 | systemd |
+
+---
+
+## 目录结构
 
 ```
-/home/CnTrainRadar/
+CnTrainRadar/
 ├── frontend/
 │   ├── index.html
 │   ├── css/style.css
 │   ├── js/app.js
 │   └── data/
-│       ├── stations.json      # 4351 station coordinates
-│       └── railways.json      # Railway lines GeoJSON (189 lines)
+│       ├── stations.json      # 4351 个车站坐标
+│       └── railways.json      # 铁路线路 GeoJSON（189 条）
 ├── backend/
 │   ├── package.json
-│   ├── server.js              # Express server + position calculation
-│   ├── schedules.json         # Train timetables (330 trains)
-│   ├── stations.json          # Station telecode lookup
-│   ├── stations_raw.json      # Raw 12306 station data
-│   └── station_coords.json    # Station coordinates
-└── .gitignore
+│   ├── server.js              # Express 服务 + 位置计算
+│   ├── schedules.json         # 列车时刻表（330 趟）
+│   ├── stations.json          # 车站电报码查询
+│   ├── stations_raw.json      # 12306 原始站名数据
+│   └── station_coords.json    # 车站坐标
+└── README.md
 ```
-
----
-
-## Data Sources
-
-| Data | Source | Notes |
-|------|--------|-------|
-| Station names + codes | 12306 `station_name.js` | 3365 stations |
-| Station coordinates | [China-Railway-Station-Database](https://github.com/undef-i/China-Railway-Station-Database) | 4351 stations with lat/lon |
-| Railway line geometry | OpenStreetMap via Gitee mirror | 189 lines, GeoJSON format |
-| Train timetables | Simulated from known routes | 13 major corridors, 330 trains |
-
----
-
-## Train Types
-
-| Type | Name | Speed | Color |
-|------|------|-------|-------|
-| G | High-Speed (高铁) | ~300 km/h | 🔴 Red |
-| D | EMU (动车) | ~200 km/h | 🔵 Blue |
-| C | Intercity (城际) | ~180 km/h | 🟢 Green |
-| Z | Direct Express (直达) | ~120 km/h | 🟠 Orange |
-| T | Express (特快) | ~100 km/h | 🟣 Purple |
-| K | Fast (快速) | ~80 km/h | ⚫ Grey |
-
----
-
-## Routes Covered
-
-| Route | Corridor | Stations |
-|-------|----------|----------|
-| 京沪高铁 | Beijing South ↔ Shanghai Hongqiao | 23 |
-| 京广高铁 (North) | Beijing West ↔ Wuhan | 19 |
-| 京广高铁 (South) | Wuhan ↔ Guangzhou South | 12 |
-| 沪昆高铁 (East) | Shanghai Hongqiao ↔ Changsha South | 13 |
-| 沪昆高铁 (West) | Changsha South ↔ Kunming South | 10 |
-| 成渝高铁 | Chengdu East ↔ Chongqing North | 12 |
-| 哈大高铁 | Harbin West ↔ Dalian North | 18 |
-| 合福高铁 | Hefei South ↔ Fuzhou | 17 |
-| 贵广高铁 | Guiyang North ↔ Guangzhou South | 17 |
-| 西成高铁 | Xi'an North ↔ Chengdu East | 13 |
-| 京哈线 (K) | Beijing ↔ Harbin | 9 |
-| 京沪线 (T) | Beijing ↔ Shanghai | 10 |
-| 京广线 (Z) | Beijing West ↔ Guangzhou | 6 |
 
 ---
 
 ## API
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/trains` | GET | All currently active trains with positions |
-| `/api/train/:id` | GET | Full schedule for a specific train |
-| `/api/health` | GET | Service health + active train count |
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/trains` | GET | 所有在运列车及位置 |
+| `/api/train/:id` | GET | 指定车次完整时刻表 |
+| `/api/health` | GET | 服务健康状态 + 在运数量 |
 
-### Response Example (`/api/trains`)
+### 响应示例 (`/api/trains`)
 
 ```json
 {
@@ -185,21 +176,21 @@ This is the same approach used by apps like "高铁通" (China HSR Tracker).
 
 ---
 
-## Deployment
+## 部署
 
-### Prerequisites
+### 前置要求
 
 - Node.js 18+
 - Nginx
 
-### 1. Install Dependencies
+### 1. 安装依赖
 
 ```bash
-cd /home/CnTrainRadar/backend
+cd backend
 npm install
 ```
 
-### 2. Create systemd Service
+### 2. 创建 systemd 服务
 
 ```bash
 sudo tee /etc/systemd/system/cn-train-radar.service << 'EOF'
@@ -210,7 +201,7 @@ After=network.target
 [Service]
 Type=simple
 User=your-user
-WorkingDirectory=/home/CnTrainRadar/backend
+WorkingDirectory=/path/to/CnTrainRadar/backend
 ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=5
@@ -225,65 +216,78 @@ sudo systemctl enable cn-train-radar
 sudo systemctl start cn-train-radar
 ```
 
-### 3. Configure Nginx
+### 3. 配置 Nginx
 
-```bash
-# See the nginx config: proxy to port 3002
-# Same pattern as flightradar project
+```nginx
+server {
+    server_name cntrainradar.yourdomain.com;
+    location / {
+        proxy_pass http://127.0.0.1:3002;
+    }
+}
 ```
 
 ### 4. DNS
 
-Add A record: `cntrainradar` → your server IP (Cloudflare Proxied recommended)
+添加 A 记录指向服务器 IP（建议 Cloudflare 代理）
 
 ---
 
-## Operations
+## 运维
 
 ```bash
-# Service status
+# 服务状态
 sudo systemctl status cn-train-radar
 
-# Live logs
+# 实时日志
 sudo journalctl -u cn-train-radar -f
 
-# Restart
+# 重启
 sudo systemctl restart cn-train-radar
 
-# Health check
+# 健康检查
 curl http://127.0.0.1:3002/api/health
 ```
 
 ---
 
-## Future Improvements
+## 数据来源
 
-| Priority | Feature | Description |
-|----------|---------|-------------|
-| 🔴 P0 | Real timetable data | Scrape from 12306 (requires China IP) |
-| 🔴 P0 | More routes | Add all major rail corridors (~50+ routes) |
-| 🟡 P1 | Station labels | Show station names on map at higher zoom |
-| 🟡 P1 | Train search/filter | Search by train number, route, type |
-| 🟡 P1 | Route highlight | Click train to show its full route on map |
-| 🟢 P2 | Delay simulation | Random delay model for realism |
-| 🟢 P2 | Multi-language | EN/中文 switching |
-| 🟢 P2 | Statistics panel | Train density, speed distribution |
+| 数据 | 来源 | 说明 |
+|------|------|------|
+| 车站名称 + 编码 | 12306 `station_name.js` | 3365 个车站 |
+| 车站坐标 | [China-Railway-Station-Database](https://github.com/undef-i/China-Railway-Station-Database) | 4351 个车站经纬度 |
+| 铁路线路 | OpenStreetMap | 189 条线路，GeoJSON 格式 |
+| 列车时刻表 | 根据已知线路模拟 | 13 条主要走廊，330 趟列车 |
 
 ---
 
-## Comparison with Flight Radar
+## 与航班雷达对比
 
-| | CN Train Radar | Flight Radar |
+| | 中国列车雷达 | 航班雷达 |
 |---|---|---|
-| Data source | Timetable simulation | Real-time ADS-B |
-| Accuracy | Estimated (~5-10 km) | Real GPS (~100m) |
-| Delay reflection | ❌ No | ✅ Yes |
-| Coverage | 13 routes, 330 trains | Global, 6000+ aircraft |
-| Update frequency | 10s (recalculated) | 10s (live data) |
-| External API needed | No (self-contained) | Yes (adsb.lol, FR24) |
+| 数据来源 | 时刻表模拟 | 实时 ADS-B |
+| 精度 | 估算（~5-10 km） | 真实 GPS（~100m） |
+| 反映延误 | ❌ 否 | ✅ 是 |
+| 覆盖范围 | 13 条线路，330 趟 | 全球 6000+ 航班 |
+| 更新频率 | 10 秒（重新计算） | 10 秒（实时数据） |
+| 外部 API 依赖 | 无（自包含） | 是（adsb.lol 等） |
 
 ---
 
-## License
+## 未来计划
 
-Personal project. Station data from [China-Railway-Station-Database](https://github.com/undef-i/China-Railway-Station-Database). Railway geometry from OpenStreetMap.
+| 优先级 | 功能 | 说明 |
+|--------|------|------|
+| 🔴 P0 | 真实时刻表 | 从 12306 获取（需国内 IP） |
+| 🔴 P0 | 更多线路 | 覆盖所有主要铁路走廊（50+ 条） |
+| 🟡 P1 | 车站标注 | 高缩放级别显示车站名 |
+| 🟡 P1 | 线路高亮 | 点击列车显示完整运行路线 |
+| 🟢 P2 | 延误模拟 | 随机延误模型增加真实感 |
+| 🟢 P2 | 统计面板 | 列车密度、速度分布 |
+
+---
+
+## 许可
+
+个人项目。车站数据来自 [China-Railway-Station-Database](https://github.com/undef-i/China-Railway-Station-Database)，铁路线路来自 OpenStreetMap。
