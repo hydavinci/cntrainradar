@@ -11,11 +11,10 @@ Real-time simulation of China's railway network. Train positions are calculated 
 - 🗺️ WebGL map rendering (MapLibre GL) — smooth 60fps
 - 🚄 Real-time train position simulation based on timetable (~10,000 trains)
 - 🎨 Color-coded by train type (G/D/C/Z/T/K)
-- 📍 Click train for details (route, speed, current/next station, progress)
-- 🛤️ Railway line overlay (189 lines from OSM)
+- 📍 Click train for details + full route display on map
 - 🖱️ Hover tooltip (train ID + route + speed)
 - 🔍 Filter by train number, route, or station
-- 🌙 Auto dark mode (follows system theme)
+- 🌙 Auto dark mode (follows system theme, with color-compensated icons)
 - 📱 Mobile-friendly responsive design
 - 🇨🇳 Chinese UI with Amap (AutoNavi) tiles
 
@@ -261,7 +260,7 @@ curl http://127.0.0.1:3002/api/health
 |----------|---------|-------------|
 | 🔴 P0 | Live timetable updates | Scrape from 12306 periodically (requires China IP) |
 | 🟡 P1 | Station labels | Show station names on map at higher zoom |
-| 🟡 P1 | Route highlight | Click train to show its full route on map |
+| 🟡 P1 | Route highlight | Click train to show full route with station dots ✅ |
 | 🟡 P1 | Better train icons | Directional arrow for easier heading recognition |
 | 🟢 P2 | Delay simulation | Random delay model for realism |
 | 🟢 P2 | Statistics panel | Train density, speed distribution |

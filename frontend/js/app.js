@@ -128,18 +128,26 @@ function createTrainImage(color) {
   ctx.shadowColor = `rgba(${r},${g},${b},0.4)`;
   ctx.shadowBlur = 3;
 
-  // Locomotive (front) - pointed nose for direction
+  // Locomotive (front)
   ctx.fillStyle = `rgb(${r},${g},${b})`;
   ctx.beginPath();
-  ctx.moveTo(0, -22);   // sharp tip
-  ctx.lineTo(3, -16);
-  ctx.lineTo(4, -12);
-  ctx.lineTo(5, -6);
-  ctx.lineTo(5, 0);
-  ctx.lineTo(-5, 0);
-  ctx.lineTo(-5, -6);
-  ctx.lineTo(-4, -12);
-  ctx.lineTo(-3, -16);
+  ctx.moveTo(0, -20);
+  ctx.lineTo(2, -20);
+  ctx.lineTo(2, -16);
+  ctx.lineTo(4, -16);
+  ctx.lineTo(4, -8);
+  ctx.lineTo(5, -8);
+  ctx.lineTo(5, -2);
+  ctx.lineTo(4, -2);
+  ctx.lineTo(4, 0);
+  ctx.lineTo(-4, 0);
+  ctx.lineTo(-4, -2);
+  ctx.lineTo(-5, -2);
+  ctx.lineTo(-5, -8);
+  ctx.lineTo(-4, -8);
+  ctx.lineTo(-4, -16);
+  ctx.lineTo(-2, -16);
+  ctx.lineTo(-2, -20);
   ctx.closePath();
   ctx.fill();
 
@@ -147,29 +155,40 @@ function createTrainImage(color) {
 
   // Locomotive window
   ctx.fillStyle = 'rgba(180,220,255,0.7)';
-  ctx.fillRect(-2.5, -14, 5, 3);
+  ctx.fillRect(-2.5, -15, 5, 3);
 
   // Carriage 1
   ctx.fillStyle = `rgba(${r},${g},${b},0.85)`;
-  ctx.fillRect(-4.5, 2, 9, 9);
-  ctx.fillStyle = 'rgba(180,220,255,0.5)';
-  ctx.fillRect(-3, 4, 2.5, 2);
-  ctx.fillRect(0.5, 4, 2.5, 2);
+  ctx.fillRect(-4, 2, 8, 8);
+  ctx.fillStyle = 'rgba(180,220,255,0.6)';
+  ctx.fillRect(-3, 3.5, 2.5, 2);
+  ctx.fillRect(0.5, 3.5, 2.5, 2);
 
-  // Carriage 2 (shorter, fading)
-  ctx.fillStyle = `rgba(${r},${g},${b},0.6)`;
-  ctx.fillRect(-4, 13, 8, 7);
-  ctx.fillStyle = 'rgba(180,220,255,0.4)';
-  ctx.fillRect(-2.5, 14.5, 2, 1.5);
-  ctx.fillRect(0.5, 14.5, 2, 1.5);
+  // Carriage 2
+  ctx.fillStyle = `rgba(${r},${g},${b},0.7)`;
+  ctx.fillRect(-4, 12, 8, 8);
+  ctx.fillStyle = 'rgba(180,220,255,0.5)';
+  ctx.fillRect(-3, 13.5, 2.5, 2);
+  ctx.fillRect(0.5, 13.5, 2.5, 2);
 
   // Coupling links
-  ctx.strokeStyle = `rgba(${r},${g},${b},0.4)`;
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.5)`;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(0, 0); ctx.lineTo(0, 2);
-  ctx.moveTo(0, 11); ctx.lineTo(0, 13);
+  ctx.moveTo(0, 10); ctx.lineTo(0, 12);
   ctx.stroke();
+
+  // Wheels
+  ctx.fillStyle = '#333';
+  ctx.beginPath();
+  ctx.arc(-3, -1, 1.5, 0, Math.PI*2);
+  ctx.arc(3, -1, 1.5, 0, Math.PI*2);
+  ctx.arc(-3, 9, 1.5, 0, Math.PI*2);
+  ctx.arc(3, 9, 1.5, 0, Math.PI*2);
+  ctx.arc(-3, 19, 1.5, 0, Math.PI*2);
+  ctx.arc(3, 19, 1.5, 0, Math.PI*2);
+  ctx.fill();
 
   return canvas;
 }
@@ -183,8 +202,9 @@ function addTrainImages() {
     const imgData = canvas.getContext('2d').getImageData(0, 0, TRAIN_IMG_SIZE, TRAIN_IMG_SIZE);
     map.addImage(name, { width: TRAIN_IMG_SIZE, height: TRAIN_IMG_SIZE, data: new Uint8Array(imgData.data.buffer) });
   }
-  // Selected (gold)
-  const selCanvas = createTrainImage([255, 215, 0]);
+  // Selected (gold - compensated for dark mode)
+  const goldColor = isDarkMode ? [94, 54, 0] : [255, 215, 0];
+  const selCanvas = createTrainImage(goldColor);
   const selData = selCanvas.getContext('2d').getImageData(0, 0, TRAIN_IMG_SIZE, TRAIN_IMG_SIZE);
   if (map.hasImage('train-selected')) map.removeImage('train-selected');
   map.addImage('train-selected', { width: TRAIN_IMG_SIZE, height: TRAIN_IMG_SIZE, data: new Uint8Array(selData.data.buffer) });
@@ -196,6 +216,7 @@ function trainsToGeoJSON(trainList) {
     type: 'FeatureCollection',
     features: trainList.map(t => {
       const [lon, lat] = wgs84ToGcj02(t.lon, t.lat);
+      const isSelected = t.id === selectedTrain;
       return {
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [lon, lat] },
@@ -203,7 +224,8 @@ function trainsToGeoJSON(trainList) {
           id: t.id,
           type: t.type,
           heading: t.heading || 0,
-          icon: t.id === selectedTrain ? 'train-selected' : `train-${t.type}`
+          icon: isSelected ? 'train-selected' : `train-${t.type}`,
+          opacity: selectedTrain ? (isSelected ? 1 : 0.25) : 1
         }
       };
     })
@@ -251,9 +273,11 @@ map.on('load', () => {
       'text-optional': true
     },
     paint: {
+      'icon-opacity': ['get', 'opacity'],
       'text-color': 'rgba(255,200,200,0.7)',
       'text-halo-color': 'rgba(0,0,0,0.7)',
-      'text-halo-width': 1
+      'text-halo-width': 1,
+      'text-opacity': ['get', 'opacity']
     }
   });
 
@@ -267,12 +291,11 @@ map.on('load', () => {
       const t = trains.find(x => x.id === id);
       if (t) {
         tooltip.setLngLat(e.lngLat).setHTML(`<strong>${t.id}</strong> ${t.from}→${t.to}<br>${t.speed} km/h`).addTo(map);
-        showTrainRoute(id);
       }
     }
   });
   map.on('mousemove', 'trains-layer', (e) => { if (e.features.length) tooltip.setLngLat(e.lngLat); });
-  map.on('mouseleave', 'trains-layer', () => { map.getCanvas().style.cursor = ''; tooltip.remove(); clearTrainRoute(); });
+  map.on('mouseleave', 'trains-layer', () => { map.getCanvas().style.cursor = ''; tooltip.remove(); });
 
   // Click - show detail sidebar
   map.on('click', 'trains-layer', (e) => {
@@ -281,6 +304,11 @@ map.on('load', () => {
   map.on('click', (e) => {
     const f = map.queryRenderedFeatures(e.point, { layers: ['trains-layer'] });
     if (f.length === 0) closeTrainDetail();
+  });
+
+  // Move: reposition detail
+  map.on('move', () => {
+    if (detailAnchor) positionDetail();
   });
 
   // Start polling
@@ -368,7 +396,9 @@ function toggleFilter() {
   }
 }
 
-// --- Select train (sidebar) ---
+// --- Select train (floating panel) ---
+let detailAnchor = null;
+
 function selectTrain(id) {
   if (selectedTrain === id) { closeTrainDetail(); return; }
   selectedTrain = id;
@@ -376,10 +406,11 @@ function selectTrain(id) {
   if (!t) return;
   
   const panel = document.getElementById('train-detail');
+  panel.className = 'visible';
   panel.innerHTML = `
     <button class="td-close" onclick="closeTrainDetail()">✕</button>
     <div class="td-id">${t.id}</div>
-    <div class="td-route">${t.routeName} · ${t.from} → ${t.to}</div>
+    <div class="td-route">${t.from} → ${t.to}</div>
     <div class="td-grid">
       <div class="td-field"><span class="label">类型</span><span class="value">${t.type}-${t.type==='G'?'高速动车':t.type==='D'?'动车组':t.type==='C'?'城际':t.type==='Z'?'直达':t.type==='T'?'特快':'快速'}</span></div>
       <div class="td-field"><span class="label">速度</span><span class="value">${t.speed} km/h</span></div>
@@ -389,16 +420,35 @@ function selectTrain(id) {
       <div class="td-field"><span class="label">进度</span><span class="value">${t.progress}%</span></div>
     </div>`;
   
-  // Show sidebar with animation
-  panel.classList.add('visible');
+  const [lon, lat] = wgs84ToGcj02(t.lon, t.lat);
+  detailAnchor = { lng: lon, lat: lat };
+  positionDetail();
   
   if (map.getSource('trains')) map.getSource('trains').setData(trainsToGeoJSON(trains));
+
+  // Show route on map
+  showTrainRoute(id);
+}
+
+function positionDetail() {
+  if (!detailAnchor) return;
+  const panel = document.getElementById('train-detail');
+  const point = map.project([detailAnchor.lng, detailAnchor.lat]);
+  const rect = map.getContainer().getBoundingClientRect();
+  let left = point.x + 20, top = point.y - 20;
+  if (left + 320 > rect.width) left = point.x - 340;
+  if (top + 250 > rect.height) top = rect.height - 260;
+  if (top < 10) top = 10;
+  panel.style.left = left + 'px';
+  panel.style.top = top + 'px';
 }
 
 function closeTrainDetail() {
-  const panel = document.getElementById('train-detail');
-  panel.classList.remove('visible');
+  document.getElementById('train-detail').className = '';
+  document.getElementById('train-detail').style.display = '';
   selectedTrain = null;
+  detailAnchor = null;
+  clearTrainRoute();
   if (map.getSource('trains')) map.getSource('trains').setData(trainsToGeoJSON(trains));
 }
 
