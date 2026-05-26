@@ -92,12 +92,12 @@ const map = new maplibregl.Map({
 let mapLoaded = false;
 
 const TRAIN_COLORS_DARK = {
-  G: [225, 119, 26],   // compensated blue
-  D: [26, 198, 202],   // compensated red
-  C: [188, 95, 184],   // compensated green
-  Z: [4, 115, 255],    // compensated orange
-  T: [113, 219, 85],   // compensated purple
-  K: [138, 138, 138]   // grey stays grey
+  G: [45, 151, 244],   // compensated blue
+  D: [255, 125, 121],  // compensated red
+  C: [54, 147, 58],    // compensated green
+  Z: [199, 88, 0],     // compensated orange
+  T: [255, 155, 255],  // compensated purple
+  K: [138, 138, 138]   // compensated grey
 };
 
 function getTrainColors() {
