@@ -9,11 +9,13 @@ Real-time simulation of China's railway network. Train positions are calculated 
 ## Features
 
 - 🗺️ WebGL map rendering (MapLibre GL) — smooth 60fps
-- 🚄 Real-time train position simulation based on timetable (~10,000 trains)
+- 🚄 Real-time train position simulation based on timetable (~11,000 trains)
 - 🎨 Color-coded by train type (G/D/C/Z/T/K)
 - 📍 Click train for details + full route display on map
 - 🖱️ Hover tooltip (train ID + route + speed)
 - 🔍 Filter by train number, route, or station
+- 🛤️ Click train to show full route with station dots on map
+- 🎯 Selected train highlighted, others dimmed
 - 🌙 Auto dark mode (follows system theme, with color-compensated icons)
 - 📱 Mobile-friendly responsive design
 - 🇨🇳 Chinese UI with Amap (AutoNavi) tiles
@@ -47,7 +49,7 @@ Real-time simulation of China's railway network. Train positions are calculated 
 │  └──────────────────────────────────┘        │
 │                                              │
 │  Data files:                                 │
-│  ├── schedules.json    (9,972 trains)        │
+│  ├── schedules.json    (11,151 trains)       │
 │  ├── station_coords.json (4,351 stations)    │
 │  └── stations.json     (3,365 stations)      │
 └──────────────────────────────────────────────┘
@@ -111,7 +113,7 @@ CnTrainRadar/
 ├── backend/
 │   ├── package.json
 │   ├── server.js              # Express server + position calculation
-│   ├── schedules.json         # Train timetables (9,972 trains)
+│   ├── schedules.json         # Train timetables (11,151 trains)
 │   ├── stations.json          # Station telecode lookup
 │   ├── stations_raw.json      # Raw 12306 station data
 │   └── station_coords.json    # Station coordinates
@@ -235,9 +237,9 @@ curl http://127.0.0.1:3002/api/health
 | Data | Source | Notes |
 |------|--------|-------|
 | Station names + codes | 12306 `station_name.js` | 3,365 stations |
-| Station coordinates | [China-Railway-Station-Database](https://github.com/undef-i/China-Railway-Station-Database) | 4,351 stations with lat/lon |
+| Station coordinates | [China-Railway-Station-Database](https://github.com/undef-i/China-Railway-Station-Database) + OpenStreetMap (Overpass API) | 4,483 stations with lat/lon |
 | Railway line geometry | OpenStreetMap | 189 lines, GeoJSON format |
-| Train timetables | [RailRhythm12306](https://github.com/wj0575/RailRhythm12306) | 9,972 trains (2025-02-23) |
+| Train timetables | [RailRhythm12306](https://github.com/wj0575/RailRhythm12306) | 11,151 trains (2025-02/03 merged) |
 
 ---
 
@@ -248,7 +250,7 @@ curl http://127.0.0.1:3002/api/health
 | Data source | Timetable simulation | Real-time ADS-B |
 | Accuracy | Estimated (~5-10 km) | Real GPS (~100m) |
 | Delay reflection | ❌ No | ✅ Yes |
-| Coverage | 9,972 trains | Global, 6,000+ aircraft |
+| Coverage | 11,151 trains | Global, 6,000+ aircraft |
 | Update frequency | 10s (recalculated) | 10s (live data) |
 | External API needed | No (self-contained) | Yes (adsb.lol, FR24) |
 
