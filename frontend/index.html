@@ -6,7 +6,7 @@
   <title>CN Train Radar | 中国列车雷达</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚄</text></svg>">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
-  <link rel="stylesheet" href="/css/style.css?v=11">
+  <link rel="stylesheet" href="/css/style.css?v=12">
 </head>
 <body>
   <div id="map"></div>
@@ -28,7 +28,7 @@
       <span>🔍 筛选</span>
     </div>
     <div class="filter-body" id="filter-body">
-      <input type="text" id="filter-input" placeholder="车次、线路、车站" oninput="applyFilter()">
+      <input type="text" id="filter-input" placeholder="车次、线路、车站" oninput="onFilterInput()">
       <div class="filter-stats" id="filter-stats"></div>
       <button class="filter-clear" onclick="clearFilter()">清除</button>
     </div>
@@ -46,6 +46,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="/js/app.js?v=26"></script>
+  <script src="/js/app.js?v=30"></script>
 </body>
 </html>

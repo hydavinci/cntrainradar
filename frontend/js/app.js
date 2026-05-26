@@ -15,7 +15,6 @@ const TRAIN_IMG_SIZE = 48;
 let trains = [];
 let filteredTrains = [];
 let selectedTrain = null;
-let detailAnchor = null;
 let filterText = '';
 
 // --- Map ---
@@ -87,8 +86,7 @@ const map = new maplibregl.Map({
   maxBounds: [[70, 15], [140, 55]]
 });
 
-// Dark mode: CSS invert on the map canvas
-// Train icon colors get inverted too — we pre-compensate in TRAIN_COLORS_DARK
+// --- Dark mode ---
 let mapLoaded = false;
 
 const TRAIN_COLORS_DARK = {
@@ -110,7 +108,6 @@ function applyDarkMode(dark) {
     : 'none';
 }
 
-// Listen for system theme change
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
   isDarkMode = e.matches;
   applyDarkMode(isDarkMode);
@@ -131,26 +128,18 @@ function createTrainImage(color) {
   ctx.shadowColor = `rgba(${r},${g},${b},0.4)`;
   ctx.shadowBlur = 3;
 
-  // Locomotive (front)
+  // Locomotive (front) - pointed nose for direction
   ctx.fillStyle = `rgb(${r},${g},${b})`;
   ctx.beginPath();
-  ctx.moveTo(0, -20);
-  ctx.lineTo(2, -20);
-  ctx.lineTo(2, -16);
-  ctx.lineTo(4, -16);
-  ctx.lineTo(4, -8);
-  ctx.lineTo(5, -8);
-  ctx.lineTo(5, -2);
-  ctx.lineTo(4, -2);
-  ctx.lineTo(4, 0);
-  ctx.lineTo(-4, 0);
-  ctx.lineTo(-4, -2);
-  ctx.lineTo(-5, -2);
-  ctx.lineTo(-5, -8);
-  ctx.lineTo(-4, -8);
-  ctx.lineTo(-4, -16);
-  ctx.lineTo(-2, -16);
-  ctx.lineTo(-2, -20);
+  ctx.moveTo(0, -22);   // sharp tip
+  ctx.lineTo(3, -16);
+  ctx.lineTo(4, -12);
+  ctx.lineTo(5, -6);
+  ctx.lineTo(5, 0);
+  ctx.lineTo(-5, 0);
+  ctx.lineTo(-5, -6);
+  ctx.lineTo(-4, -12);
+  ctx.lineTo(-3, -16);
   ctx.closePath();
   ctx.fill();
 
@@ -158,40 +147,29 @@ function createTrainImage(color) {
 
   // Locomotive window
   ctx.fillStyle = 'rgba(180,220,255,0.7)';
-  ctx.fillRect(-2.5, -15, 5, 3);
+  ctx.fillRect(-2.5, -14, 5, 3);
 
   // Carriage 1
   ctx.fillStyle = `rgba(${r},${g},${b},0.85)`;
-  ctx.fillRect(-4, 2, 8, 8);
-  ctx.fillStyle = 'rgba(180,220,255,0.6)';
-  ctx.fillRect(-3, 3.5, 2.5, 2);
-  ctx.fillRect(0.5, 3.5, 2.5, 2);
-
-  // Carriage 2
-  ctx.fillStyle = `rgba(${r},${g},${b},0.7)`;
-  ctx.fillRect(-4, 12, 8, 8);
+  ctx.fillRect(-4.5, 2, 9, 9);
   ctx.fillStyle = 'rgba(180,220,255,0.5)';
-  ctx.fillRect(-3, 13.5, 2.5, 2);
-  ctx.fillRect(0.5, 13.5, 2.5, 2);
+  ctx.fillRect(-3, 4, 2.5, 2);
+  ctx.fillRect(0.5, 4, 2.5, 2);
+
+  // Carriage 2 (shorter, fading)
+  ctx.fillStyle = `rgba(${r},${g},${b},0.6)`;
+  ctx.fillRect(-4, 13, 8, 7);
+  ctx.fillStyle = 'rgba(180,220,255,0.4)';
+  ctx.fillRect(-2.5, 14.5, 2, 1.5);
+  ctx.fillRect(0.5, 14.5, 2, 1.5);
 
   // Coupling links
-  ctx.strokeStyle = `rgba(${r},${g},${b},0.5)`;
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.4)`;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(0, 0); ctx.lineTo(0, 2);
-  ctx.moveTo(0, 10); ctx.lineTo(0, 12);
+  ctx.moveTo(0, 11); ctx.lineTo(0, 13);
   ctx.stroke();
-
-  // Wheels
-  ctx.fillStyle = '#333';
-  ctx.beginPath();
-  ctx.arc(-3, -1, 1.5, 0, Math.PI*2);
-  ctx.arc(3, -1, 1.5, 0, Math.PI*2);
-  ctx.arc(-3, 9, 1.5, 0, Math.PI*2);
-  ctx.arc(3, 9, 1.5, 0, Math.PI*2);
-  ctx.arc(-3, 19, 1.5, 0, Math.PI*2);
-  ctx.arc(3, 19, 1.5, 0, Math.PI*2);
-  ctx.fill();
 
   return canvas;
 }
@@ -242,7 +220,6 @@ map.on('load', () => {
 
   // Railway lines (convert coords to GCJ02)
   fetch('/data/railways.json').then(r => r.json()).then(data => {
-    // Transform all coordinates
     for (const feature of data.features) {
       if (feature.geometry && feature.geometry.coordinates) {
         feature.geometry.coordinates = feature.geometry.coordinates.map(c => wgs84ToGcj02(c[0], c[1]));
@@ -280,7 +257,7 @@ map.on('load', () => {
     }
   });
 
-  // Hover tooltip
+  // Hover tooltip + route
   const tooltip = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: [0, -10], className: 'train-tooltip' });
   
   map.on('mouseenter', 'trains-layer', (e) => {
@@ -290,24 +267,20 @@ map.on('load', () => {
       const t = trains.find(x => x.id === id);
       if (t) {
         tooltip.setLngLat(e.lngLat).setHTML(`<strong>${t.id}</strong> ${t.from}→${t.to}<br>${t.speed} km/h`).addTo(map);
+        showTrainRoute(id);
       }
     }
   });
   map.on('mousemove', 'trains-layer', (e) => { if (e.features.length) tooltip.setLngLat(e.lngLat); });
-  map.on('mouseleave', 'trains-layer', () => { map.getCanvas().style.cursor = ''; tooltip.remove(); });
+  map.on('mouseleave', 'trains-layer', () => { map.getCanvas().style.cursor = ''; tooltip.remove(); clearTrainRoute(); });
 
-  // Click
+  // Click - show detail sidebar
   map.on('click', 'trains-layer', (e) => {
     if (e.features.length > 0) selectTrain(e.features[0].properties.id);
   });
   map.on('click', (e) => {
     const f = map.queryRenderedFeatures(e.point, { layers: ['trains-layer'] });
     if (f.length === 0) closeTrainDetail();
-  });
-
-  // Move: reposition detail
-  map.on('move', () => {
-    if (detailAnchor) positionDetail();
   });
 
   // Start polling
@@ -338,7 +311,9 @@ function updateMap() {
     filterText ? `显示 ${filteredTrains.length} / ${trains.length}` : '';
 }
 
-// --- Filter ---
+// --- Filter (with debounce) ---
+let filterDebounceTimer = null;
+
 function matchesFilter(t) {
   if (!filterText) return true;
   const q = filterText.toUpperCase();
@@ -352,17 +327,26 @@ function matchesFilter(t) {
   return false;
 }
 
+function onFilterInput() {
+  clearTimeout(filterDebounceTimer);
+  filterDebounceTimer = setTimeout(applyFilter, 200);
+}
+
 function applyFilter() {
   filterText = document.getElementById('filter-input').value.trim();
   updateMap();
   // Auto-zoom to results
   if (filterText && filteredTrains.length > 0 && filteredTrains.length <= 10) {
     if (filteredTrains.length === 1) {
-      map.flyTo({ center: [filteredTrains[0].lon, filteredTrains[0].lat], zoom: Math.max(map.getZoom(), 7) });
+      const [lon, lat] = wgs84ToGcj02(filteredTrains[0].lon, filteredTrains[0].lat);
+      map.flyTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), 7) });
       selectTrain(filteredTrains[0].id);
     } else {
       const bounds = new maplibregl.LngLatBounds();
-      filteredTrains.forEach(t => bounds.extend([t.lon, t.lat]));
+      filteredTrains.forEach(t => {
+        const [lon, lat] = wgs84ToGcj02(t.lon, t.lat);
+        bounds.extend([lon, lat]);
+      });
       map.fitBounds(bounds, { padding: 60 });
     }
   }
@@ -384,7 +368,7 @@ function toggleFilter() {
   }
 }
 
-// --- Select train ---
+// --- Select train (sidebar) ---
 function selectTrain(id) {
   if (selectedTrain === id) { closeTrainDetail(); return; }
   selectedTrain = id;
@@ -392,7 +376,6 @@ function selectTrain(id) {
   if (!t) return;
   
   const panel = document.getElementById('train-detail');
-  panel.className = 'visible';
   panel.innerHTML = `
     <button class="td-close" onclick="closeTrainDetail()">✕</button>
     <div class="td-id">${t.id}</div>
@@ -406,34 +389,136 @@ function selectTrain(id) {
       <div class="td-field"><span class="label">进度</span><span class="value">${t.progress}%</span></div>
     </div>`;
   
-  detailAnchor = { lng: t.lon, lat: t.lat };
-  positionDetail();
+  // Show sidebar with animation
+  panel.classList.add('visible');
   
   if (map.getSource('trains')) map.getSource('trains').setData(trainsToGeoJSON(trains));
 }
 
-function positionDetail() {
-  if (!detailAnchor) return;
-  const panel = document.getElementById('train-detail');
-  const point = map.project([detailAnchor.lng, detailAnchor.lat]);
-  const rect = map.getContainer().getBoundingClientRect();
-  let left = point.x + 20, top = point.y - 20;
-  if (left + 320 > rect.width) left = point.x - 340;
-  if (top + 250 > rect.height) top = rect.height - 260;
-  if (top < 10) top = 10;
-  panel.style.left = left + 'px';
-  panel.style.top = top + 'px';
-}
-
 function closeTrainDetail() {
-  document.getElementById('train-detail').className = '';
-  document.getElementById('train-detail').style.display = '';
+  const panel = document.getElementById('train-detail');
+  panel.classList.remove('visible');
   selectedTrain = null;
-  detailAnchor = null;
   if (map.getSource('trains')) map.getSource('trains').setData(trainsToGeoJSON(trains));
 }
 
+// --- Route display (with cache) ---
+const routeCache = new Map();
+const ROUTE_CACHE_MAX = 50;
+let routeRequestId = 0;
+
+async function showTrainRoute(trainId) {
+  clearTrainRoute();
+  const reqId = ++routeRequestId;
+
+  let data = routeCache.get(trainId);
+  if (!data) {
+    try {
+      const resp = await fetch(`/api/train/${trainId}`);
+      if (!resp.ok || reqId !== routeRequestId) return;
+      data = await resp.json();
+      if (reqId !== routeRequestId) return;
+      // Cache it
+      if (routeCache.size >= ROUTE_CACHE_MAX) {
+        const firstKey = routeCache.keys().next().value;
+        routeCache.delete(firstKey);
+      }
+      routeCache.set(trainId, data);
+    } catch (e) {
+      return;
+    }
+  } else {
+    if (reqId !== routeRequestId) return;
+  }
+
+  const stops = data.stops;
+  if (!stops || stops.length < 2) return;
+
+  // Build route line (convert to GCJ02)
+  const coords = stops.map(s => wgs84ToGcj02(s.lon, s.lat));
+  const routeColor = TRAIN_COLORS[data.type] || [150,150,150];
+  const [r, g, b] = routeColor;
+
+  map.addSource('train-route', {
+    type: 'geojson',
+    data: {
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: coords }
+    }
+  });
+
+  map.addLayer({
+    id: 'train-route-line',
+    type: 'line',
+    source: 'train-route',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': `rgba(${r},${g},${b},0.8)`,
+      'line-width': 3,
+      'line-dasharray': [2, 2]
+    }
+  }, 'trains-layer');
+
+  // Station dots
+  map.addSource('train-route-stops', {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: stops.map(s => {
+        const [lon, lat] = wgs84ToGcj02(s.lon, s.lat);
+        return {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [lon, lat] },
+          properties: { name: s.name }
+        };
+      })
+    }
+  });
+
+  map.addLayer({
+    id: 'train-route-stops-layer',
+    type: 'circle',
+    source: 'train-route-stops',
+    paint: {
+      'circle-radius': 4,
+      'circle-color': `rgb(${r},${g},${b})`,
+      'circle-stroke-width': 1.5,
+      'circle-stroke-color': '#fff'
+    }
+  }, 'trains-layer');
+
+  // Station labels
+  map.addLayer({
+    id: 'train-route-labels',
+    type: 'symbol',
+    source: 'train-route-stops',
+    layout: {
+      'text-field': ['get', 'name'],
+      'text-font': ['Open Sans Regular'],
+      'text-size': 11,
+      'text-offset': [0, 1.2],
+      'text-anchor': 'top',
+      'text-optional': true
+    },
+    paint: {
+      'text-color': `rgb(${r},${g},${b})`,
+      'text-halo-color': 'rgba(0,0,0,0.7)',
+      'text-halo-width': 1
+    }
+  }, 'trains-layer');
+}
+
+function clearTrainRoute() {
+  if (map.getLayer('train-route-labels')) map.removeLayer('train-route-labels');
+  if (map.getLayer('train-route-stops-layer')) map.removeLayer('train-route-stops-layer');
+  if (map.getLayer('train-route-line')) map.removeLayer('train-route-line');
+  if (map.getSource('train-route-stops')) map.removeSource('train-route-stops');
+  if (map.getSource('train-route')) map.removeSource('train-route');
+}
+
+// --- Exports ---
 window.closeTrainDetail = closeTrainDetail;
 window.toggleFilter = toggleFilter;
+window.onFilterInput = onFilterInput;
 window.applyFilter = applyFilter;
 window.clearFilter = clearFilter;
