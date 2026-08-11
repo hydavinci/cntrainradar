@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'cntrainradar-v6';
+const CACHE_VERSION = 'cntrainradar-v7';
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const DATA_CACHE = `${CACHE_VERSION}-data`;
 
@@ -6,7 +6,7 @@ const APP_SHELL = [
   '/',
   '/index.html',
   '/css/style.css?v=14',
-  '/js/app.js?v=40',
+  '/js/app.js?v=41',
   '/manifest.webmanifest',
   '/icons/icon.svg'
 ];

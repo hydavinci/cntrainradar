@@ -497,24 +497,24 @@ function positionDetail() {
 }
 
 function buildNearbyDetailCandidates(anchor, width, height, mapRect, margin) {
-  const gaps = [22, 58, 104];
+  const gaps = [12, 28, 52];
   const placements = [
-    { name: 'right', dx: 1, dy: -0.5 },
-    { name: 'left', dx: -1, dy: -0.5 },
-    { name: 'below', dx: -0.5, dy: 1 },
-    { name: 'above', dx: -0.5, dy: -1 },
-    { name: 'bottom-right', dx: 0.35, dy: 0.35 },
-    { name: 'bottom-left', dx: -1.35, dy: 0.35 },
-    { name: 'top-right', dx: 0.35, dy: -1.35 },
-    { name: 'top-left', dx: -1.35, dy: -1.35 }
+    { name: 'right', left: gap => anchor.x + gap, top: () => anchor.y - height / 2 },
+    { name: 'left', left: gap => anchor.x - width - gap, top: () => anchor.y - height / 2 },
+    { name: 'below', left: () => anchor.x - width / 2, top: gap => anchor.y + gap },
+    { name: 'above', left: () => anchor.x - width / 2, top: gap => anchor.y - height - gap },
+    { name: 'bottom-right', left: gap => anchor.x + gap, top: gap => anchor.y + gap },
+    { name: 'bottom-left', left: gap => anchor.x - width - gap, top: gap => anchor.y + gap },
+    { name: 'top-right', left: gap => anchor.x + gap, top: gap => anchor.y - height - gap },
+    { name: 'top-left', left: gap => anchor.x - width - gap, top: gap => anchor.y - height - gap }
   ];
 
   const seen = new Set();
   const candidates = [];
   for (const gap of gaps) {
     for (const p of placements) {
-      const rawLeft = anchor.x + p.dx * width + Math.sign(p.dx) * gap;
-      const rawTop = anchor.y + p.dy * height + Math.sign(p.dy) * gap;
+      const rawLeft = p.left(gap);
+      const rawTop = p.top(gap);
       const left = clamp(rawLeft, margin, mapRect.width - width - margin);
       const top = clamp(rawTop, margin, mapRect.height - height - margin);
       const key = `${Math.round(left)}:${Math.round(top)}`;
