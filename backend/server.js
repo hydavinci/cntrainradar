@@ -52,7 +52,12 @@ function toActiveTrain(train, stop, nextStop, progress, heading, speed, stopped 
 app.use(express.static(path.join(__dirname, '../frontend'), {
   maxAge: '1h',
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+    if (filePath.endsWith('.html') || filePath.endsWith('sw.js')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+    if (filePath.endsWith('.webmanifest')) {
+      res.setHeader('Content-Type', 'application/manifest+json');
+    }
   }
 }));
 

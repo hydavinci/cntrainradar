@@ -18,6 +18,7 @@ Real-time simulation of China's railway network. Train positions are calculated 
 - 🎯 Selected train highlighted, others dimmed
 - 🌙 Auto dark mode (follows system theme, with color-compensated icons)
 - 📱 Mobile-friendly responsive design
+- 📦 Installable PWA with offline app shell caching
 - 🇨🇳 Chinese UI with Amap (AutoNavi) tiles
 
 ---
@@ -89,7 +90,7 @@ Unlike flight tracking (which uses real-time ADS-B GPS signals), China's railway
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | MapLibre GL JS (WebGL), Vanilla JS, CSS |
+| Frontend | MapLibre GL JS (WebGL), Vanilla JS, CSS, Service Worker PWA |
 | Backend | Node.js 22, Express |
 | Map Tiles | Amap / AutoNavi (高德地图) |
 | CDN | jsdelivr (MapLibre), openmaptiles (fonts) |

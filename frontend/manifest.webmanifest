@@ -1,0 +1,21 @@
+{
+  "name": "CN Train Radar | 中国列车雷达",
+  "short_name": "Train Radar",
+  "description": "Timetable-based simulation of China's railway network.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "orientation": "any",
+  "lang": "zh-CN",
+  "categories": ["maps", "travel", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

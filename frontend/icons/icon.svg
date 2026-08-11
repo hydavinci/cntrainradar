@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CN Train Radar">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#0a0a0f"/>
+    </linearGradient>
+    <linearGradient id="rail" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2d9cff"/>
+      <stop offset="1" stop-color="#66e0ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="184" fill="none" stroke="#1e88e5" stroke-width="18" opacity="0.32"/>
+  <circle cx="256" cy="256" r="118" fill="none" stroke="#1e88e5" stroke-width="10" opacity="0.22"/>
+  <path d="M256 86v54M256 372v54M86 256h54M372 256h54" stroke="#66e0ff" stroke-width="16" stroke-linecap="round" opacity="0.58"/>
+  <g transform="translate(256 260) rotate(-24)">
+    <path d="M-52-142h104c28 0 50 22 50 50v166c0 22-18 40-40 40H-62c-22 0-40-18-40-40V-92c0-28 22-50 50-50z" fill="url(#rail)"/>
+    <path d="M-54-104h108c10 0 18 8 18 18v36H-72v-36c0-10 8-18 18-18z" fill="#d8f5ff" opacity="0.9"/>
+    <path d="M-68 0H68M-68 42H68" stroke="#07111f" stroke-width="16" stroke-linecap="round" opacity="0.38"/>
+    <circle cx="-48" cy="116" r="16" fill="#07111f" opacity="0.85"/>
+    <circle cx="48" cy="116" r="16" fill="#07111f" opacity="0.85"/>
+  </g>
+  <path d="M132 402l248-248" stroke="#ffd54f" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+  <circle cx="380" cy="154" r="24" fill="#ffd54f"/>
+</svg>
