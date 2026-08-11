@@ -472,19 +472,9 @@ function positionDetail() {
     return;
   }
 
-  const candidates = [
-    { left: margin, top: margin },
-    { left: mapRect.width - panelWidth - margin, top: margin },
-    { left: margin, top: mapRect.height - panelHeight - margin },
-    { left: mapRect.width - panelWidth - margin, top: mapRect.height - panelHeight - margin }
-  ].map(pos => ({
-    ...pos,
-    right: pos.left + panelWidth,
-    bottom: pos.top + panelHeight
-  }));
-
   const routePoints = currentRouteCoords.map(coord => map.project(coord));
   const trainPoint = map.project([detailAnchor.lng, detailAnchor.lat]);
+  const candidates = buildNearbyDetailCandidates(trainPoint, panelWidth, panelHeight, mapRect, margin);
   const uiRects = ['info-panel', 'filter-panel', 'legend']
     .map(id => document.getElementById(id))
     .filter(Boolean)
@@ -506,24 +496,58 @@ function positionDetail() {
   panel.style.top = best.top + 'px';
 }
 
+function buildNearbyDetailCandidates(anchor, width, height, mapRect, margin) {
+  const gaps = [22, 58, 104];
+  const placements = [
+    { name: 'right', dx: 1, dy: -0.5 },
+    { name: 'left', dx: -1, dy: -0.5 },
+    { name: 'below', dx: -0.5, dy: 1 },
+    { name: 'above', dx: -0.5, dy: -1 },
+    { name: 'bottom-right', dx: 0.35, dy: 0.35 },
+    { name: 'bottom-left', dx: -1.35, dy: 0.35 },
+    { name: 'top-right', dx: 0.35, dy: -1.35 },
+    { name: 'top-left', dx: -1.35, dy: -1.35 }
+  ];
+
+  const seen = new Set();
+  const candidates = [];
+  for (const gap of gaps) {
+    for (const p of placements) {
+      const rawLeft = anchor.x + p.dx * width + Math.sign(p.dx) * gap;
+      const rawTop = anchor.y + p.dy * height + Math.sign(p.dy) * gap;
+      const left = clamp(rawLeft, margin, mapRect.width - width - margin);
+      const top = clamp(rawTop, margin, mapRect.height - height - margin);
+      const key = `${Math.round(left)}:${Math.round(top)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      candidates.push({ left, top, right: left + width, bottom: top + height, gap, placement: p.name });
+    }
+  }
+  return candidates;
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
 function detailPositionScore(rect, routePoints, trainPoint, uiRects) {
-  const padded = { left: rect.left - 14, top: rect.top - 14, right: rect.right + 14, bottom: rect.bottom + 14 };
-  let score = 0;
+  const padded = { left: rect.left - 10, top: rect.top - 10, right: rect.right + 10, bottom: rect.bottom + 10 };
+  let score = rect.gap * 8;
 
   for (const uiRect of uiRects) {
     score += rectOverlapArea(padded, uiRect) * 4;
   }
 
   for (let i = 0; i < routePoints.length; i++) {
-    if (pointInRect(routePoints[i], padded)) score += 5000;
-    if (i > 0 && lineIntersectsRect(routePoints[i - 1], routePoints[i], padded)) score += 12000;
+    if (pointInRect(routePoints[i], padded)) score += 9000;
+    if (i > 0 && lineIntersectsRect(routePoints[i - 1], routePoints[i], padded)) score += 30000;
   }
 
-  // Prefer keeping the card away from the selected train marker too.
   const cx = (rect.left + rect.right) / 2;
   const cy = (rect.top + rect.bottom) / 2;
   const distance = Math.hypot(cx - trainPoint.x, cy - trainPoint.y);
-  score -= Math.min(distance, 1200);
+  score += distance;
+  if (pointInRect(trainPoint, padded)) score += 20000;
   return score;
 }
 
