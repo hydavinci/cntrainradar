@@ -16,6 +16,18 @@ let trains = [];
 let filteredTrains = [];
 let selectedTrain = null;
 let filterText = '';
+let trainMeta = new Map();
+
+function getTrainMeta(trainOrId) {
+  const id = typeof trainOrId === 'string' ? trainOrId : trainOrId.id;
+  return trainMeta.get(id) || { routeName: '', from: '', to: '' };
+}
+
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  }[ch]));
+}
 
 // --- Map ---
 let isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -290,7 +302,8 @@ map.on('load', () => {
       const id = e.features[0].properties.id;
       const t = trains.find(x => x.id === id);
       if (t) {
-        tooltip.setLngLat(e.lngLat).setHTML(`<strong>${t.id}</strong> ${t.from}→${t.to}<br>${t.speed} km/h`).addTo(map);
+        const meta = getTrainMeta(t);
+        tooltip.setLngLat(e.lngLat).setHTML(`<strong>${escapeHTML(t.id)}</strong> ${escapeHTML(meta.from)}→${escapeHTML(meta.to)}<br>${t.speed} km/h`).addTo(map);
       }
     }
   });
@@ -311,12 +324,24 @@ map.on('load', () => {
     if (detailAnchor) positionDetail();
   });
 
-  // Start polling
-  fetchTrains();
-  setInterval(fetchTrains, 10000);
+  // Start polling after static metadata is available for labels/filtering.
+  loadTrainMeta().finally(() => {
+    fetchTrains();
+    setInterval(fetchTrains, 10000);
+  });
 });
 
 // --- Fetch trains ---
+async function loadTrainMeta() {
+  try {
+    const resp = await fetch('/api/meta');
+    const data = await resp.json();
+    trainMeta = new Map((data.trains || []).map(([id, routeName, from, to]) => [id, { routeName, from, to }]));
+  } catch (e) {
+    trainMeta = new Map();
+  }
+}
+
 async function fetchTrains() {
   try {
     const resp = await fetch('/api/trains');
@@ -346,9 +371,10 @@ function matchesFilter(t) {
   if (!filterText) return true;
   const q = filterText.toUpperCase();
   if (t.id.toUpperCase().includes(q)) return true;
-  if (t.routeName && t.routeName.includes(filterText)) return true;
-  if (t.from && t.from.includes(filterText)) return true;
-  if (t.to && t.to.includes(filterText)) return true;
+  const meta = getTrainMeta(t);
+  if (meta.routeName && meta.routeName.includes(filterText)) return true;
+  if (meta.from && meta.from.includes(filterText)) return true;
+  if (meta.to && meta.to.includes(filterText)) return true;
   if (t.currentStation && t.currentStation.includes(filterText)) return true;
   if (t.nextStation && t.nextStation.includes(filterText)) return true;
   if (t.type.toUpperCase() === q) return true;
@@ -407,15 +433,16 @@ function selectTrain(id) {
   
   const panel = document.getElementById('train-detail');
   panel.className = 'visible';
+  const meta = getTrainMeta(t);
   panel.innerHTML = `
     <button class="td-close" onclick="closeTrainDetail()">✕</button>
-    <div class="td-id">${t.id}</div>
-    <div class="td-route">${t.from} → ${t.to}</div>
+    <div class="td-id">${escapeHTML(t.id)}</div>
+    <div class="td-route">${escapeHTML(meta.from)} → ${escapeHTML(meta.to)}</div>
     <div class="td-grid">
-      <div class="td-field"><span class="label">类型</span><span class="value">${t.type}-${t.type==='G'?'高速动车':t.type==='D'?'动车组':t.type==='C'?'城际':t.type==='Z'?'直达':t.type==='T'?'特快':'快速'}</span></div>
+      <div class="td-field"><span class="label">类型</span><span class="value">${escapeHTML(t.type)}-${t.type==='G'?'高速动车':t.type==='D'?'动车组':t.type==='C'?'城际':t.type==='Z'?'直达':t.type==='T'?'特快':'快速'}</span></div>
       <div class="td-field"><span class="label">速度</span><span class="value">${t.speed} km/h</span></div>
-      <div class="td-field"><span class="label">当前站</span><span class="value">${t.currentStation}</span></div>
-      <div class="td-field"><span class="label">下一站</span><span class="value">${t.nextStation}</span></div>
+      <div class="td-field"><span class="label">当前站</span><span class="value">${escapeHTML(t.currentStation)}</span></div>
+      <div class="td-field"><span class="label">下一站</span><span class="value">${escapeHTML(t.nextStation)}</span></div>
       <div class="td-field"><span class="label">状态</span><span class="value">${t.stopped ? '🟡 停靠中' : '🟢 运行中'}</span></div>
       <div class="td-field"><span class="label">进度</span><span class="value">${t.progress}%</span></div>
     </div>`;

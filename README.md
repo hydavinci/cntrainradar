@@ -28,8 +28,8 @@ Real-time simulation of China's railway network. Train positions are calculated 
 ┌─────────────────────────────────────────────┐
 │                 Browser                      │
 │  ┌────────────┐  ┌──────────────────────┐   │
-│  │ MapLibre GL│  │ Polling /api/trains   │   │
-│  │  (WebGL)   │  │ every 10s            │   │
+│  │ MapLibre GL│  │ /api/meta once        │   │
+│  │  (WebGL)   │  │ /api/trains every 10s │   │
 │  └────────────┘  └──────────────────────┘   │
 └─────────────────┬───────────────────────────┘
                   │ HTTP
@@ -126,7 +126,8 @@ CnTrainRadar/
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/trains` | GET | All currently active trains with positions |
+| `/api/trains` | GET | Currently active trains with compact live position fields |
+| `/api/meta` | GET | Static train metadata used by the frontend for labels/filtering |
 | `/api/train/:id` | GET | Full schedule for a specific train |
 | `/api/health` | GET | Service health + active train count |
 
@@ -138,11 +139,8 @@ CnTrainRadar/
     {
       "id": "G5",
       "type": "G",
-      "routeName": "京沪高铁",
-      "from": "北京南",
-      "to": "上海虹桥",
-      "lat": 35.123,
-      "lon": 117.456,
+      "lat": 35.12345,
+      "lon": 117.45678,
       "heading": 165,
       "speed": 300,
       "currentStation": "济南西",
@@ -237,7 +235,7 @@ curl http://127.0.0.1:3002/api/health
 | Data | Source | Notes |
 |------|--------|-------|
 | Station names + codes | 12306 `station_name.js` | 3,365 stations |
-| Station coordinates | [China-Railway-Station-Database](https://github.com/undef-i/China-Railway-Station-Database) + OpenStreetMap (Overpass API) | 4,483 stations with lat/lon |
+| Station coordinates | [China-Railway-Station-Database](https://github.com/undef-i/China-Railway-Station-Database) + OpenStreetMap (Overpass API) | 4,351 frontend stations; schedule payload contains coordinates for active timetable stops |
 | Railway line geometry | OpenStreetMap | 189 lines, GeoJSON format |
 | Train timetables | [RailRhythm12306](https://github.com/wj0575/RailRhythm12306) | 11,151 trains (2025-02/03 merged) |
 

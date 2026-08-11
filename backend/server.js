@@ -7,16 +7,45 @@ import { readFileSync } from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+app.disable('x-powered-by');
 app.use(compression());
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  next();
+});
 
 // Load schedule data
 const schedules = JSON.parse(readFileSync(path.join(__dirname, 'schedules.json'), 'utf8'));
 console.log(`Loaded ${schedules.length} train schedules`);
 
-// Build index for O(1) lookup
+// Build indexes for O(1) lookup and small polling payloads
 const scheduleMap = new Map();
+const trainMeta = [];
 for (const train of schedules) {
   scheduleMap.set(train.id, train);
+  trainMeta.push([train.id, train.route_name, train.from, train.to]);
+}
+
+function roundCoord(value) {
+  return Math.round(value * 100000) / 100000;
+}
+
+function toActiveTrain(train, stop, nextStop, progress, heading, speed, stopped = false) {
+  return {
+    id: train.id,
+    type: train.type,
+    lat: roundCoord(stopped ? stop.lat : stop.lat + (nextStop.lat - stop.lat) * progress),
+    lon: roundCoord(stopped ? stop.lon : stop.lon + (nextStop.lon - stop.lon) * progress),
+    heading: Math.round((heading + 360) % 360),
+    speed,
+    currentStation: stop.name,
+    nextStation: stopped ? (nextStop?.name || '终点') : nextStop.name,
+    progress: Math.round(progress * 100),
+    ...(stopped ? { stopped: true } : {})
+  };
 }
 
 // Serve frontend
@@ -86,9 +115,6 @@ function getActiveTrains() {
         // Interpolate position
         const timeDiff = arriveTime - departTime;
         const progress = timeDiff > 0 ? (currentMin - departTime) / timeDiff : 0;
-        const lat = stops[i].lat + (stops[i + 1].lat - stops[i].lat) * progress;
-        const lon = stops[i].lon + (stops[i + 1].lon - stops[i].lon) * progress;
-
         // Calculate heading
         const dlat = stops[i + 1].lat - stops[i].lat;
         const dlon = stops[i + 1].lon - stops[i].lon;
@@ -97,20 +123,7 @@ function getActiveTrains() {
         // Calculate actual speed from timetable
         const speed = calcSpeed(stops[i], stops[i + 1]);
 
-        active.push({
-          id: train.id,
-          type: train.type,
-          routeName: train.route_name,
-          from: train.from,
-          to: train.to,
-          lat,
-          lon,
-          heading: (heading + 360) % 360,
-          speed,
-          currentStation: stops[i].name,
-          nextStation: stops[i + 1].name,
-          progress: Math.round(progress * 100)
-        });
+        active.push(toActiveTrain(train, stops[i], stops[i + 1], progress, heading, speed));
         break;
       }
 
@@ -119,21 +132,7 @@ function getActiveTrains() {
         const stationArrive = stops[i + 1].arrive_min;
         const stationDepart = stops[i + 1].depart_min;
         if (currentMin >= stationArrive && currentMin <= stationDepart) {
-          active.push({
-            id: train.id,
-            type: train.type,
-            routeName: train.route_name,
-            from: train.from,
-            to: train.to,
-            lat: stops[i + 1].lat,
-            lon: stops[i + 1].lon,
-            heading: 0,
-            speed: 0,
-            currentStation: stops[i + 1].name,
-            nextStation: i + 2 < stops.length ? stops[i + 2].name : '终点',
-            progress: 100,
-            stopped: true
-          });
+          active.push(toActiveTrain(train, stops[i + 1], stops[i + 2], 1, 0, 0, true));
           break;
         }
       }
@@ -145,6 +144,7 @@ function getActiveTrains() {
 
 // --- Result cache (10s TTL) ---
 let cachedTrains = null;
+let cachedPayload = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 10000; // 10 seconds
 
@@ -152,15 +152,26 @@ function getCachedTrains() {
   const now = Date.now();
   if (!cachedTrains || now - cacheTimestamp > CACHE_TTL) {
     cachedTrains = getActiveTrains();
+    cachedPayload = JSON.stringify({ trains: cachedTrains, count: cachedTrains.length, timestamp: now });
     cacheTimestamp = now;
   }
   return cachedTrains;
 }
 
+function getCachedPayload() {
+  getCachedTrains();
+  return cachedPayload;
+}
+
 // API: active trains
 app.get('/api/trains', (req, res) => {
-  const trains = getCachedTrains();
-  res.json({ trains, count: trains.length, timestamp: Date.now() });
+  res.type('application/json').send(getCachedPayload());
+});
+
+// API: static train metadata, separated from the 10s polling payload
+app.get('/api/meta', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.json({ trains: trainMeta });
 });
 
 // API: train detail (O(1) lookup)
