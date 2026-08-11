@@ -424,6 +424,7 @@ function toggleFilter() {
 
 // --- Select train (floating panel) ---
 let detailAnchor = null;
+let currentRouteCoords = [];
 
 function selectTrain(id) {
   if (selectedTrain === id) { closeTrainDetail(); return; }
@@ -460,14 +461,107 @@ function selectTrain(id) {
 function positionDetail() {
   if (!detailAnchor) return;
   const panel = document.getElementById('train-detail');
-  const point = map.project([detailAnchor.lng, detailAnchor.lat]);
-  const rect = map.getContainer().getBoundingClientRect();
-  let left = point.x + 20, top = point.y - 20;
-  if (left + 320 > rect.width) left = point.x - 340;
-  if (top + 250 > rect.height) top = rect.height - 260;
-  if (top < 10) top = 10;
-  panel.style.left = left + 'px';
-  panel.style.top = top + 'px';
+  const mapRect = map.getContainer().getBoundingClientRect();
+  const margin = 12;
+  const panelWidth = panel.offsetWidth || 320;
+  const panelHeight = panel.offsetHeight || 240;
+
+  if (mapRect.width <= 600) {
+    panel.style.left = margin + 'px';
+    panel.style.top = Math.max(margin, mapRect.height - panelHeight - margin) + 'px';
+    return;
+  }
+
+  const candidates = [
+    { left: margin, top: margin },
+    { left: mapRect.width - panelWidth - margin, top: margin },
+    { left: margin, top: mapRect.height - panelHeight - margin },
+    { left: mapRect.width - panelWidth - margin, top: mapRect.height - panelHeight - margin }
+  ].map(pos => ({
+    ...pos,
+    right: pos.left + panelWidth,
+    bottom: pos.top + panelHeight
+  }));
+
+  const routePoints = currentRouteCoords.map(coord => map.project(coord));
+  const trainPoint = map.project([detailAnchor.lng, detailAnchor.lat]);
+  const uiRects = ['info-panel', 'filter-panel', 'legend']
+    .map(id => document.getElementById(id))
+    .filter(Boolean)
+    .map(el => {
+      const r = el.getBoundingClientRect();
+      return {
+        left: r.left - mapRect.left,
+        top: r.top - mapRect.top,
+        right: r.right - mapRect.left,
+        bottom: r.bottom - mapRect.top
+      };
+    });
+
+  const best = candidates
+    .map(candidate => ({ ...candidate, score: detailPositionScore(candidate, routePoints, trainPoint, uiRects) }))
+    .sort((a, b) => a.score - b.score)[0];
+
+  panel.style.left = best.left + 'px';
+  panel.style.top = best.top + 'px';
+}
+
+function detailPositionScore(rect, routePoints, trainPoint, uiRects) {
+  const padded = { left: rect.left - 14, top: rect.top - 14, right: rect.right + 14, bottom: rect.bottom + 14 };
+  let score = 0;
+
+  for (const uiRect of uiRects) {
+    score += rectOverlapArea(padded, uiRect) * 4;
+  }
+
+  for (let i = 0; i < routePoints.length; i++) {
+    if (pointInRect(routePoints[i], padded)) score += 5000;
+    if (i > 0 && lineIntersectsRect(routePoints[i - 1], routePoints[i], padded)) score += 12000;
+  }
+
+  // Prefer keeping the card away from the selected train marker too.
+  const cx = (rect.left + rect.right) / 2;
+  const cy = (rect.top + rect.bottom) / 2;
+  const distance = Math.hypot(cx - trainPoint.x, cy - trainPoint.y);
+  score -= Math.min(distance, 1200);
+  return score;
+}
+
+function rectOverlapArea(a, b) {
+  const x = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+  const y = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+  return x * y;
+}
+
+function pointInRect(point, rect) {
+  return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
+}
+
+function lineIntersectsRect(a, b, rect) {
+  if (pointInRect(a, rect) || pointInRect(b, rect)) return true;
+  const corners = [
+    { x: rect.left, y: rect.top },
+    { x: rect.right, y: rect.top },
+    { x: rect.right, y: rect.bottom },
+    { x: rect.left, y: rect.bottom }
+  ];
+  return corners.some((corner, i) => segmentsIntersect(a, b, corner, corners[(i + 1) % corners.length]));
+}
+
+function segmentsIntersect(a, b, c, d) {
+  const cross = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  const onSegment = (p, q, r) =>
+    Math.min(p.x, r.x) <= q.x && q.x <= Math.max(p.x, r.x) &&
+    Math.min(p.y, r.y) <= q.y && q.y <= Math.max(p.y, r.y);
+  const d1 = cross(a, b, c);
+  const d2 = cross(a, b, d);
+  const d3 = cross(c, d, a);
+  const d4 = cross(c, d, b);
+  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+  return (d1 === 0 && onSegment(a, c, b)) ||
+    (d2 === 0 && onSegment(a, d, b)) ||
+    (d3 === 0 && onSegment(c, a, d)) ||
+    (d4 === 0 && onSegment(c, b, d));
 }
 
 function closeTrainDetail() {
@@ -475,6 +569,7 @@ function closeTrainDetail() {
   document.getElementById('train-detail').style.display = '';
   selectedTrain = null;
   detailAnchor = null;
+  currentRouteCoords = [];
   clearTrainRoute();
   if (map.getSource('trains')) map.getSource('trains').setData(trainsToGeoJSON(trains));
 }
@@ -513,6 +608,8 @@ async function showTrainRoute(trainId) {
 
   // Build route line (convert to GCJ02)
   const coords = stops.map(s => wgs84ToGcj02(s.lon, s.lat));
+  currentRouteCoords = coords;
+  positionDetail();
   const routeColor = TRAIN_COLORS[data.type] || [150,150,150];
   const [r, g, b] = routeColor;
 
@@ -586,6 +683,7 @@ async function showTrainRoute(trainId) {
 }
 
 function clearTrainRoute() {
+  currentRouteCoords = [];
   if (map.getLayer('train-route-labels')) map.removeLayer('train-route-labels');
   if (map.getLayer('train-route-stops-layer')) map.removeLayer('train-route-stops-layer');
   if (map.getLayer('train-route-line')) map.removeLayer('train-route-line');
